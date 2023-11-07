@@ -132,7 +132,7 @@ def submit_job(func, func_input, job_name:str, start:datetime, interval_duration
 		queue_type: the type of task queue that the function is joining for execution
 
 	"""
-	start_scheduler_process(func, func_input, job_name, start, interval_duration, weekdays, execution_frequency, execution_type, queue_type)
+	return(start_scheduler_process(func, func_input, job_name, start, interval_duration, weekdays, execution_frequency, execution_type, queue_type))
 	
 
 def create_process_info_dataframe(func, func_input, job_name: str, pid: int, task_id: int) -> pd.DataFrame:
