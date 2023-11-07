@@ -119,12 +119,14 @@ def layout_homepage_define_new_task(process_df, db_engine) - > None:
 			user = cols[0].text_input("Username:")
 			job_name = cols[1].text_input("Job name", "ABC")
 			cols = st.columns(2)
-			function = cols[0].selectbox("Task:", ["Interpret files"], index=0)
+			task = cols[0].selectbox("Task:", ["Interpret files"], index=0)
 			func_input = cols[1].file_uploader("Upload a file")
 			cols = st.columns(2)
 			data_start = cols[0].date_input("Dataset start from:")
 			data_end = cols[0].date_input("Dataset end on:")
-			if function == "Interpret files": comment = st.text_area("Query:")
+			if task == "Interpret files": 
+				comment = st.text_area("Query:")
+				func = get_qa
 			else: comment = st.text_area("Notes:")
 			submitted = cols[1].form_submit_button(label="Submit")
 			unit_select_col, slider_select_col, interval_duration, weekdays, frequency = get_execution_frequency()
@@ -134,4 +136,5 @@ def layout_homepage_define_new_task(process_df, db_engine) - > None:
 			new_task_id = get_start_task_id(process_df)
 
 			process_id, job_id = submit_job(func, func_input, job_name, start, interval_duration, weekdays, execution_frequency, execution_type, task_id, sql_engine, queue_type="rq")
-	
+			st.write(func_input)
+			st.success(f"Submitted task {job_name} with task_id {new_task_id} to execute {task}.")
