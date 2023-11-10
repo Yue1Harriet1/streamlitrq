@@ -1,6 +1,7 @@
 import os
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.chat_models import AzureChatOpenAI
+import openai
 
 
 HOME_DIR = ""
