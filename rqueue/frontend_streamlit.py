@@ -99,6 +99,62 @@ def get_execution_frequency():
 	interval_duration = get_interval_duration(time_unit, time_unit_quantity, weekdays)
 	return(unit_select_col, slider_select_col, interval_duration, weekdays, frequency)
 
+def calculate_execution_start(date_input_col: DeltaGenerator,
+                              time_slider_col: DeltaGenerator) -> datetime:
+    """
+    Calculate the start datetime of command execution.
+
+    Args:
+        date_input_col: Streamlit column with UI element to select execution date.
+        time_slider_col:  Streamlit column with UI (slider) element to select hr:min of execution.
+
+    Returns:
+        datetime object with the start date & time of execution.
+    """
+    input_date = date_input_col.date_input("Starting date", datetime.now())
+    selected_time = time_slider_col.slider(
+        "Timepoint",
+        min_value=datetime(2020, 1, 1, 00, 00),
+        max_value=datetime(2020, 1, 1, 23, 59),
+        value=datetime(2020, 1, 1, 12, 00),
+        format="HH:mm",
+    )
+
+    execution_date = datetime(input_date.year, input_date.month, input_date.day)
+    time_difference = selected_time - datetime(2020, 1, 1, 00, 00, 00)
+
+    return execution_date + time_difference
+    
+def get_task_execution_start(execution_type: str, execution_frequency: str,
+                                weekdays: Optional[List[str]], date_col: DeltaGenerator,
+                                slider_col: DeltaGenerator) -> datetime:
+    """
+    Get the start datetime of command execution.
+
+    Args:
+        execution_type: type of execution schedule: is execution "Scheduled" or not.
+        execution_frequency: frequency of execution: "Interval" / "Daily"
+        weekdays: (optional) list with selected weekdays.
+        date_col: Streamlit column with UI element to select execution date.
+        slider_col: Streamlit column with UI (slider) element to select hr:min of execution.
+
+    Returns:
+        datetime object with the start date & time of execution.
+    """
+    start = datetime.now()
+
+    if execution_type == "Scheduled":
+        start = calculate_execution_start(date_col, slider_col)
+
+        if execution_frequency == "Daily":
+            while settings.WEEK_DAYS[start.weekday()] not in weekdays:
+                start += timedelta(days=1)
+
+    st.text(f"First execution on {start.strftime(settings.DATE_FORMAT)}.")
+
+    return start
+
+
 def get_execution_start_date(frequency, weekdays):
 	execution_schedule_col, date_input_col, time_slider_col = st.columns(3)
 	execution = execution_schedule_col.selectbox("Execution", ("Now", "Scheduled"))

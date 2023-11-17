@@ -2,7 +2,7 @@ from langchain.document_loaders import PyPDFLoader
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.chains import RetrievalQA
-import settings
+from . import settings
 
 def read_pdf(filename:str, dir:str):
 	return(PyPDFLoader(path+"//"+file).load_and_split())

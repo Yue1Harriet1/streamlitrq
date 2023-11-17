@@ -28,3 +28,15 @@ LLM = AzureChatOpenAI(deployment_name=ENGINE,
 					openai_api_version=openai.api_version,
 					openai_api_key=OPENAI_API_KEY)
 EMBEDDINGS = OpenAIEmbeddings(openai_api_key=openai.api_key, model=OPENAI_EMBEDDING_MODEL, chunk_size=1)
+
+DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+WEEK_DAYS = {
+    0: "Mon",
+    1: "Tue",
+    2: "Wed",
+    3: "Thu",
+    4: "Fri",
+    5: "Sat",
+    6: "Sun"
+}
