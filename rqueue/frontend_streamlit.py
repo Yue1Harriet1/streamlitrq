@@ -124,7 +124,7 @@ def calculate_execution_start(date_input_col: DeltaGenerator,
     time_difference = selected_time - datetime(2020, 1, 1, 00, 00, 00)
 
     return execution_date + time_difference
-    
+
 def get_task_execution_start(execution_type: str, execution_frequency: str,
                                 weekdays: Optional[List[str]], date_col: DeltaGenerator,
                                 slider_col: DeltaGenerator) -> datetime:
@@ -180,14 +180,16 @@ def layout_homepage_define_new_task(process_df, db_engine) -> None:
 			job_name = cols[1].text_input("Job name", "ABC")
 			cols = st.columns(2)
 			task = cols[0].selectbox("Task:", ["Interpret files"], index=0)
-			func_input = cols[1].file_uploader("Upload a file")
-			cols = st.columns(2)
+			if task == "Interpret files": 
+				func_input = cols[1].file_uploader("Upload a file")
+			cols = st.columns((1,1))
 			data_start = cols[0].date_input("Dataset start from:")
-			data_end = cols[0].date_input("Dataset end on:")
+			data_end = cols[1].date_input("Dataset end on:")
 			if task == "Interpret files": 
 				comment = st.text_area("Query:")
-				func = get_qa
+				func = functions.get_qa
 			else: comment = st.text_area("Notes:")
+			cols = st.columns(2)
 			submitted = cols[1].form_submit_button(label="Submit")
 			unit_select_col, slider_select_col, interval_duration, weekdays, frequency = get_execution_frequency()
 			execution_schedule_col, date_input_col, time_slider_col, execution, start = get_execution_start_date(frequency, weekdays)
