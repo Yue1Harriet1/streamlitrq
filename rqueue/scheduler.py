@@ -3,8 +3,18 @@ from datetime import datetime, timedelta
 import settings
 from sqlalchemy import engine
 import pandas as pd
+from typing import(
+	Callable,
+	List,
+	Optional,
+	Tuple
+)
+from . import rqu
+from . import settings
+from . import task
+from multiprocessing import Process
 
-def enqueue_process(func, func_input, log_filepth:str, queue, queue_type:str="rq"):
+def enqueue_process(func, func_input, task_name:str, log_filepath:str, queue, queue_type:str="rq"):
 	"""
 	enqueue the function process and save 'out' and 'error' logs to respective log file.
 
@@ -32,7 +42,7 @@ def enqueue_process(func, func_input, log_filepth:str, queue, queue_type:str="rq
 	return(job)
 
 
-def execute_job(func, func_input, log_filepath:str, job_name:str, now:datetime, queue, queue_type:str="rq"):
+def execute_job(func, func_input, log_filepath:str, job_name:str, task_name:str, now:datetime, queue, queue_type:str="rq"):
 	"""
 	Interface for running a job:
 		-> launch a process
@@ -49,11 +59,11 @@ def execute_job(func, func_input, log_filepath:str, job_name:str, now:datetime, 
 	Returns:
 		a job object of the particular queue.
 	"""
-	job = enqueue_process(func, func_input, log_filepth, queue, queue_type)
+	job = enqueue_process(func, func_input, log_filepath, queue, queue_type)
 	return(job)
 
 
-def schedule_process_job(func, func_input, job_name:str, start:datetime, interval_duration:timedelta, weekdays:Optional[List[str]], execution_frequency:str, execution_type:str, queue, queue_type:str="rq"):
+def schedule_process_job(func, func_input, job_name:str, task_name:str, start:datetime, interval_duration:timedelta, weekdays:Optional[List[str]], execution_frequency:str, execution_type:str, queue, queue_type:str="rq"):
 	"""
 	Launch a scheduler process that spawns job execution processes if launch conditions are met.
 	Checks for current date. If date criterion is met -> start the process with command execution.
@@ -72,7 +82,7 @@ def schedule_process_job(func, func_input, job_name:str, start:datetime, interva
 	"""
 	stdout_log_file = f"{settings.BASE_LOG_DIR}/{job_name}_stdout.txt"
 	if execution_frequency == "Once":
-		job = execute_job(func=func, func_input=func_input, log_filepath=stdout_log_file, job_name=job_name, now=datetime.now(), queue=queue, queue_type=queue_type)
+		job = execute_job(func=func, func_input=func_input, log_filepath=stdout_log_file, job_name=job_name, task_name=task_name, now=datetime.now(), queue=queue, queue_type=queue_type)
 		return(job)
 
 	# If process must be executed now, decrease start date by interval timedelta:
@@ -83,13 +93,13 @@ def schedule_process_job(func, func_input, job_name:str, start:datetime, interva
 	while True:
 		now = datetime.now()
 		if process_should_execute(now, start, interval_duration, weekdays):
-			job = execute_job(func=func, func_input=func_input, log_filepath=stdout_log_file, job_name=job_name, now=datetime.now(), queue=queue, queue_type=queue_type)
+			job = execute_job(func=func, func_input=func_input, log_filepath=stdout_log_file, job_name=job_name, task_name=task_name, now=datetime.now(), queue=queue, queue_type=queue_type)
 			start += interval_duration
 		else:
 			time.sleep(1)	
 
 
-def start_scheduler_process(func, func_input, job_name:str, start: datetime, interval_duration:timedelta, weekdays: Optional[List[str]], execution_frequency: str, execution_type:str, queue_type:str="rq") -> (int, int):
+def start_scheduler_process(func, func_input, job_name:str, task_name:str, start: datetime, interval_duration:timedelta, weekdays: Optional[List[str]], execution_frequency: str, execution_type:str, queue_type:str="rq") -> (int, int):
 	"""
 	Run a process with the selected parameters.
 
@@ -108,13 +118,14 @@ def start_scheduler_process(func, func_input, job_name:str, start: datetime, int
 		ID of the started process and the job		
 
 	"""
+	log_filepath = f"{settings.BASE_LOG_DIR}/{job_name}_redis_server_log.txt"
 	conn, q = rq.start_redis_queue(log_filepath)
-	job = schedule_process_job(func, func_input, job_name, start, interval_duration, weekdays, execution_frequency, execution_type, q, queue_type)
+	job = schedule_process_job(func, func_input, job_name, task_name, start, interval_duration, weekdays, execution_frequency, execution_type, q, queue_type)
 	process = Process(target=run_worker, kwargs=dict(conn=conn, q=q))
 	process.start()
-	return(process.pid, job.id)
+	return(q, process, job)
 
-def submit_job(func, func_input, job_name:str, start:datetime, interval_duration:timedelta, weekdays:Optional[List[str]], execution_frequency:str, execution_type:str, task_id:int, sql_engine:engine, queue_type:str="rq"):
+def submit_job(func, func_input, job_name:str, task_name:str, start:datetime, interval_duration:timedelta, weekdays:Optional[List[str]], execution_type:str, task_id:int, sql_engine:engine, queue_type:str="rq", execution_frequency:str="Once"):
 	"""
 	Run a process job and save related process information to an SQL alchemy file.
 
@@ -132,7 +143,7 @@ def submit_job(func, func_input, job_name:str, start:datetime, interval_duration
 		queue_type: the type of task queue that the function is joining for execution
 
 	"""
-	return(start_scheduler_process(func, func_input, job_name, start, interval_duration, weekdays, execution_frequency, execution_type, queue_type))
+	return(start_scheduler_process(func, func_input, job_name, task_name, start, interval_duration, weekdays, execution_frequency, execution_type, queue_type))
 	
 
 def create_process_info_dataframe(func, func_input, job_name: str, pid: int, task_id: int) -> pd.DataFrame:
@@ -205,7 +216,7 @@ def read_log(filename: str) -> List[str]:
 	except FileNotFoundError as exc:
 		raise exc
 
-def write_job_execution_log(func, func_input, job_name: str, now: datetime, msg: str) -> None:
+def write_job_execution_log(job_name: str, command:str, now: datetime, msg: str) -> None:
 	"""
 	Save job execution information to a log file.
 	Args:
@@ -223,4 +234,7 @@ def write_job_execution_log(func, func_input, job_name: str, now: datetime, msg:
 		try:
 			with open(f"{settings.BASE_LOG_DIR}/{job_name}{suffix}", "a") as file:
 				if suffix == "_stdout.txt" and command != "":
-					file.
+					file.write(f"\n{'=' * 70} \n")
+				file.write(f"{now_str} {msg} {command}\n")
+		except OSError as exc:
+			raise exc
