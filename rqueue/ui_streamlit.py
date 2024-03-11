@@ -6,6 +6,9 @@ from typing import (Callable, List, Optional, Tuple)
 from datetime import datetime, timedelta
 from . import settings
 from . import scheduler
+from sqlalchemy import engine
+import pandas as pd
+
 
 def get_time_interval_info(unit_col: DeltaGenerator,
                            slider_col: DeltaGenerator
@@ -101,6 +104,35 @@ def get_execution_frequency():
 	interval_duration = get_interval_duration(time_unit, time_unit_quantity, weekdays)
 	return(unit_select_col, slider_select_col, interval_duration, weekdays, frequency)
 
+
+def get_execution_interval_information(execution_frequency: str,
+                                       unit_col: DeltaGenerator,
+                                       slider_col: DeltaGenerator
+                                       ) -> Tuple[Optional[str], Optional[int], Optional[List[str]]]:
+    """
+    Get command execution interval information, including time interval (e.g. hours, weeks, etc.),
+    related quantity and execution weekdays.
+
+    Args:
+        execution_frequency: string indicating execution frequency.
+        unit_col: Streamlit column with UI element to select the corresponding
+            execution time interval, e.g. 'minutes', 'hours', etc.
+        slider_col: Streamlit column with UI element to select the quantity
+            of execution time intervals.
+
+    Returns:
+        tuple with information about time interval, interval quantity and selected weekdays.
+    """
+    time_unit = time_unit_quantity = weekdays = None
+
+    if execution_frequency == "Interval":
+        time_unit, time_unit_quantity = get_time_interval_info(unit_col, slider_col)
+
+    if execution_frequency == "Daily":
+        weekdays = select_weekdays(unit_col)
+
+    return time_unit, time_unit_quantity, weekdays
+
 def calculate_execution_start(date_input_col: DeltaGenerator,
                               time_slider_col: DeltaGenerator) -> datetime:
     """
@@ -173,9 +205,10 @@ def layout_homepage_define_new_task(process_df, db_engine) -> None:
 		db_engine: database engine for saving df into db.
 	"""
 
-	with st.expander("Add New Task"):
+	with st.expander("# 🎯 Add New Task"):
 		st.write("")
 		form = st.form(key="annotation")
+		func_input = {}
 		with form:
 			cols = st.columns((1,1))
 			user = cols[0].text_input("Username:")
@@ -191,21 +224,49 @@ def layout_homepage_define_new_task(process_df, db_engine) -> None:
 				func_input["query"] = st.text_are("Query:")
 				func = functions.get_qa
 			else: comment = st.text_area("Notes:")
-			cols = st.columns(2)
-			submitted = cols[1].form_submit_button(label="Submit")
-			refreshed = cols[1].from_submit_button(label="Get updates")
 			unit_select_col, slider_select_col, interval_duration, weekdays, frequency = get_execution_frequency()
 			execution_schedule_col, date_input_col, time_slider_col, execution, start = get_execution_start_date(frequency, weekdays)
+			cols = st.columns(2)
+			submitted = cols[0].form_submit_button(label="Submit")
+			refreshed = cols[0].from_submit_button(label="Get updates")
 	
 		if submitted:
 			#new_task_id = utils.get_start_task_id(process_df)
 			new_task_id = 1
 			global q
 			q, process, job = submit_job(func, func_input, job_name, start, interval_duration, weekdays, execution_frequency, execution_type, task_id, sql_engine, queue_type="rq")
-			st.write(func_input)
 			st.success(f"Submitted task {job_name} with process_id {process.pid} to execute job {job.id}.")
 
 		if refreshed:
 			jobs = q.finished_job_registry.get_job_ids()
+			jobs = [{'id': job_id, 'time': q.fetch_job(job_id).ended_at} for job_id in jobs]
 			jobs = [{'id': job['id'], 'time': job['time'], 'result': q.fetch_job(job['id']).result} for job in jobs]
 			st.write(jobs)
+			if refreshed: refresh(process_df)
+
+def refresh(df: pd.DataFrame) -> None:
+	scheduler.update_process_status_info(df)
+	scheduler.update_df_process_last_update_info(df)
+
+def layout_task_tables(process_df, db_engine) -> None:
+
+	with st.expander("# 🔢 Task Updates"):
+		process_df = scheduler.get_process_df(db_engine)
+		st.table(process_df)
+		# In case process df has any processes that are no longer running (but still alive)
+		# provide user an option to remove them
+		if False in process_df["running"].values:
+			if st.button("Remove processes that are not running."):
+				running = process_df[process_df["running"]]
+				running.to_sql("processes" con=db_engine, if_exists="replace", index=False)
+				scheduler.refresh_app()
+
+
+
+
+def homepage(db_engine: engine) -> None:
+	global process_df
+    process_df = scheduler.get_process_df(db_engine)
+	layout_task_tables(process_df, db_engine)
+
+	layout_homepage_define_new_task(process_df, db_engine)
