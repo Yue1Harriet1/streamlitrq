@@ -258,7 +258,7 @@ def layout_task_tables(process_df, db_engine) -> None:
 		if False in process_df["running"].values:
 			if st.button("Remove processes that are not running."):
 				running = process_df[process_df["running"]]
-				running.to_sql("processes" con=db_engine, if_exists="replace", index=False)
+				running.to_sql("processes", con=db_engine, if_exists="replace", index=False)
 				scheduler.refresh_app()
 
 
