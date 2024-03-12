@@ -2,3 +2,4 @@ SQLAlchemy 1.4.22
 rq
 redis
 streamlit
+langchain

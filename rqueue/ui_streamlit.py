@@ -266,7 +266,7 @@ def layout_task_tables(process_df, db_engine) -> None:
 
 def homepage(db_engine: engine) -> None:
 	global process_df
-    process_df = scheduler.get_process_df(db_engine)
+	process_df = scheduler.get_process_df(db_engine)
 	layout_task_tables(process_df, db_engine)
 
 	layout_homepage_define_new_task(process_df, db_engine)
