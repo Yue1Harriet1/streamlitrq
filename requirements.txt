@@ -3,3 +3,4 @@ rq
 redis
 streamlit
 langchain
+psutil
