@@ -7,6 +7,17 @@ import time
 import streamlit as st
 from threading import Thread
 
+class Task:
+	list_of_tasks = []
+
+	def __init__(self, func, func_name:str):
+		"need to add **kwargs parameter too for func input"
+		self.func = func
+		self.name = func_name
+		Task.list_of_tasks.append(self)
+
+
+
 def sleep(seconds):
 	start = time.perf_counter()
 	time.sleep(seconds)
