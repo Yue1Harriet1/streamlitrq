@@ -32,12 +32,13 @@ openai.api_key = OPENAI_API_KEY
 
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 FORMAT = {
-    "task_id": [],
+    "id": [],
     "created": [],
-    "process id": [],
-    "job name": [],
-    "command": [],
-    "last update": [],
+    "process_id": [],
+    "job_name": [],
+    "job_id": [],
+    "task": [],
+    "last_updated": [],
     "running": [],
 }
 WEEK_DAYS = {

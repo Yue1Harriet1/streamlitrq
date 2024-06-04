@@ -6,15 +6,14 @@ from . import settings
 import time 
 import streamlit as st
 from threading import Thread
+from typing import List
 
 class Task:
-	list_of_tasks = []
 
 	def __init__(self, func, func_name:str):
 		"need to add **kwargs parameter too for func input"
 		self.func = func
 		self.name = func_name
-		Task.list_of_tasks.append(self)
 
 
 
@@ -33,6 +32,9 @@ def count_down(seconds):
 
 def read_pdf(filename:str, dir:str):
 	return(PyPDFLoader(path+"//"+file).load_and_split())
+
+def print_nums(i=5):
+	for n in range(i): print(n)
 
 
 
