@@ -6,7 +6,7 @@ from streamlit.delta_generator import DeltaGenerator
 from typing import (Callable, List, Optional, Tuple)
 from datetime import datetime, timedelta
 from . import settings
-from . import scheduler
+from . import scheduler, qmanager, db
 from sqlalchemy import engine
 import pandas as pd
 from rq.job import Job
@@ -212,17 +212,18 @@ def layout_homepage_define_new_task(process_df, db_engine, user_defined_task:Lis
 
 	tasks_list = {t.name: t.func for t in user_defined_task}
 	order, monitor = st.columns(2)
+	global conn
 
 	with order:
 		with st.expander("# 🎯 Add New Requests"):
 			row = st.columns(4)
-			foodgrids = [col.container(height=200) for col in row]
+			foodgrids = [col.container(height=110) for col in row]
 			with foodgrids[0]: st.image("https://assets.epicurious.com/photos/57c5c6d9cf9e9ad43de2d96e/1:1/w_1920,c_limit/the-ultimate-hamburger.jpg")	
 			with foodgrids[1]: st.image("https://assets.unileversolutions.com/recipes-v2/243652.jpg")
 			with foodgrids[2]: st.image("https://scontent-ord5-1.xx.fbcdn.net/v/t1.18169-9/20621949_181866382354166_2547956009864041122_n.jpg?_nc_cat=101&ccb=1-7&_nc_sid=5f2048&_nc_ohc=2umspTq0CS8Q7kNvgHlehGp&_nc_ht=scontent-ord5-1.xx&oh=00_AYDNexJo9RpY0Twgclf3kwU6-1ddbEsFc5whIgRj_UIDew&oe=6680BCC8")
 			with foodgrids[3]: st.image("https://img.taste.com.au/g3bM8rGr/w643-h428-cfill-q90/taste/2016/11/rachel-87711-2.jpeg")
 			
-			with st.columns(3)[1]: st.image("https://png.pngtree.com/png-clipart/20211116/original/pngtree-cute-hijab-muslim-chef-holding-the-order-here-sign-board-png-image_6933723.png", width=200)
+			with st.columns(3)[1]: st.image("https://png.pngtree.com/png-clipart/20211116/original/pngtree-cute-hijab-muslim-chef-holding-the-order-here-sign-board-png-image_6933723.png", width=130)
 			form = st.form(key="annotation")
 			
 			with form:
@@ -243,33 +244,33 @@ def layout_homepage_define_new_task(process_df, db_engine, user_defined_task:Lis
 				if func_inputs: func_inputs = json.loads(func_inputs)
 				func = tasks_list[task_name]
 
-				unit_select_col, slider_select_col, interval_duration, weekdays, frequency = get_execution_frequency()
-				execution_schedule_col, date_input_col, time_slider_col, execution_type, start = get_execution_start_date(frequency, weekdays)
+				#unit_select_col, slider_select_col, interval_duration, weekdays, frequency = get_execution_frequency()
+				#execution_schedule_col, date_input_col, time_slider_col, execution_type, start = get_execution_start_date(frequency, weekdays)
 				cols = st.columns(2)
 				submitted = cols[0].form_submit_button(label="Submit")
 				refreshed = cols[1].form_submit_button(label="Get updates")
 				conn, q, process = scheduler.start_scheduler_process(job_name)
 				
-				func_input = {"food_name": task_name, "seconds": 10}
+				func_input = {"food_name": task_name, "seconds": 50}
 
 			if submitted:
 				#new_task_id = utils.get_start_task_id(process_df)
 				new_task_id = 1
-				job = scheduler.submit_task(func=func, func_input=func_input, job_name=job_name, task_name="", start=start, interval_duration=interval_duration, weekdays=weekdays, execution_type=execution_type, index=new_task_id, db_engine=db_engine, worker_process=process, queue=q, queue_type="rq")
+				job = scheduler.submit_task(func=func, func_input=func_input, job_name=job_name, task_name="", start="start", interval_duration="", weekdays="", execution_type="execution_type", index=new_task_id, db_engine=db_engine, worker_process=process, queue=q, queue_type="rq")
 				st.success(f"Submitted task {job_name} with process_id {process.pid} to execute job {job.id}.")
 				st.write(job.get_status())
 
 			if refreshed:
-					
+				""
 				#jobs = [{'id': job_id, 'time': q.fetch_job(job_id).ended_at} for job_id in jobs]
 				#jobs = [{'id': j['id'], 'time': j['time'], 'result': q.fetch_job(j['id']).result} for j in jobs]
 				#st.write(jobs)
 				#st.write(q.fetch_job(job['id']).result)
 				
-				refresh(process_df, conn)
+				#refresh(process_df, conn)
 
 	with monitor:
-		layout_task_tables(process_df, db_engine)
+		layout_current_session_tasks(process_df, db_engine, conn)
 
 
 			
@@ -300,22 +301,44 @@ def refresh(df:pd.DataFrame, connection, to_wait: int = 0) -> None:
 #	return(scheduler.update_task_status_info(df, connection))
 	#scheduler.update_df_process_last_update_info(df)
 @st.experimental_fragment
-def layout_task_tables(process_df, db_engine) -> None:
+def layout_current_session_tasks(process_df, db_engine, redis_conn) -> None:
 	st.button("Update")
+	finished = qmanager.get_finished_jobs(redis_conn)
+	existing = qmanager.get_existing_jobs(redis_conn)
+	with st.expander("# 🔢 Task Updates"):
+		running, finish = st.columns(2)
 
+		with running:
+			st.table(pd.DataFrame({"running": existing, "task": [(Job.fetch(j, connection=redis_conn)).func_name for j in existing or []]}))
+
+
+		with finish:
+			st.table(pd.DataFrame({"finished": finished, "task": [(Job.fetch(j, connection=redis_conn)).func_name for j in finished or []]}))
+
+
+
+
+def layout_task_tables(process_df, db_engine, redis_conn) -> None:
+	st.button("Update")
+	expired = qmanager.get_finished_jobs(redis_conn)
+	existing = qmanager.get_existing_jobs(redis_conn)
 	with st.expander("# 🔢 Task Updates"):
 		process_df = scheduler.get_process_df(db_engine)
+		db.update_task_status_info(process_df, redis_conn, db_engine)
+		#process_df['last_updated'] = process_df['job_id'].apply(lambda x: qmanager.check_job_status(x, redis_conn) if x not in expired else None)
+
+		st.table(expired)
+		st.table(existing)
 		st.table(process_df)
 		# In case process df has any processes that are no longer running (but still alive)
 		# provide user an option to remove them
+		"""
 		if False in process_df["running"].values:
 			if st.button("Remove processes that are not running."):
 				running = process_df[process_df["running"]]
 				running.to_sql("processes", con=db_engine, if_exists="replace", index=False)
 				scheduler.refresh_app()
-
-
-
+		"""
 
 def homepage(db_engine: engine, user_tasks) -> None:
 	global process_df

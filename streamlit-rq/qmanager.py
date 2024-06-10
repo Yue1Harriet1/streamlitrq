@@ -1,6 +1,8 @@
 import redis
 from redis import Redis
 from rq import Queue, Worker, Connection
+from rq.job import Job
+from rq.registry import StartedJobRegistry, FinishedJobRegistry
 from multiprocessing import Process
 from subprocess import Popen
 import os
@@ -30,4 +32,15 @@ def run_worker(conn: Connection, q: Queue):
 		worker.work()
 
 
+def check_job_status(job_id, conn:Connection):
+	job = Job.fetch(id=str(job_id), connection=conn)
+	result = job.latest_results()
+	return(result.Type.SUCCESSFUL, result.return_value)
 
+def get_finished_jobs(conn:Connection):
+	registry = FinishedJobRegistry('default', connection=conn)
+	return(registry.get_job_ids())
+
+def get_existing_jobs(conn:Connection):
+	registry = StartedJobRegistry('default', connection=conn)
+	return(registry.get_job_ids())

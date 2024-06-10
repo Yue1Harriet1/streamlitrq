@@ -21,6 +21,9 @@ from rq import get_current_job
 from pandas.io import sql
 from rq.exceptions import NoSuchJobError
 from typing import Dict
+from pandas.io import sql
+from . import db
+from datetime import datetime, timedelta
 
 
 
@@ -44,7 +47,7 @@ def enqueue_process(func, func_input:Dict, task_name:str, log_filepath:str, queu
 	metadata = {'progress': 0}
 	try:
 		if queue_type == "rq": 
-			job = queue.enqueue(func, kwargs=func_input, meta=metadata)
+			job = queue.enqueue(func, kwargs=func_input, meta=metadata, result_ttl=7200)
 
 	except OSError as exc:
 		raise exc
@@ -158,63 +161,12 @@ def submit_task(func, func_input, job_name:str, task_name:str, start:datetime, i
 	"""
 	#q, process, job = start_scheduler_process(func, func_input, job_name, task_name, start, interval_duration, weekdays, execution_frequency, execution_type, queue_type)
 	job = schedule_process_job(func, func_input, job_name, task_name, start, interval_duration, weekdays, execution_frequency, execution_type, queue, queue_type)
-	process_df = create_process_info_dataframe(func=func, func_input=func_input, job_name=job_name, pid=worker_process.pid, job_id=job.id, index=index)
-	save_df_to_sql(process_df, db_engine)
+	process_df = db.create_process_info_dataframe(func=func, func_input=func_input, status=job.get_status(), job_name=job_name, pid=worker_process.pid, job_id=job.id, index=index)
+	db.insert_a_task_record(process_df, db_engine)
 	return(job)
 	
 
-def create_process_info_dataframe(func, func_input, job_name: str, pid: int, job_id, index: int) -> pd.DataFrame:
-	"""
-	Generate a dataframe with process information in the following format:
 
-	{
-		'task_id': [],
-		'created': [],
-		'process id': [],
-		'job name': [],
-		'task': [],
-		'last update': [],
-		'running': []
-	}
-
-	Args:
-		func: function to be executed
-		func_input: parameters the above function needs
-		job_name: name generated for the job.
-		pid: process ID.
-		task_id: task ID.
-
-	Returns:
-		pandas DF with process related information.
-	"""
-	created = datetime.now()
-	return pd.DataFrame(
-		{
-			'id': [index],
-			'created': [created],
-			'process_id': [pid],
-			'job_name': [job_name],
-			'job_id': [job_id],
-			'task': [func.__str__()],
-			'last_updated': [None],
-			'running': [None]
-		}
-	)
-
-def save_df_to_sql(df: pd.DataFrame, db_engine: engine) -> None:
-	"""
-	Save dataframe with process information to a local sql alchemy DB file.
-	Args:
-		df: process information df.
-		sql_engine:  sql alchemy engine to use.
-
-	Raises:
-		OperationalError: if any sqlalchemy errors have been thrown.
-	"""
-	try:
-		df.to_sql("processes", con=db_engine, if_exists="append", index=False)
-	except OperationalError as exc:
-		raise exc
 
 def read_log(filename: str) -> List[str]:
 	"""
@@ -343,21 +295,7 @@ def get_process_df(sql_engine: engine) -> pd.DataFrame:
 	return df
 
 
-def update_task_status_info(df: pd.DataFrame, connection) -> None:
-	"""
-	If process dataframe already exists, filter out dead and 'zombie' processes to only
-	show accurate process information.
-
-	Args:
-		df: df with process information.
-	"""
-	#df["running"] = df["job_id"].apply(
-	#	lambda x: psutil.pid_exists(x) and psutil.Process(x).status() == "running")
-	df["running"] = False
-	try:
-		df["running"] = df["job_id"].apply(lambda x: (Job.fetch(x, connection=connection)).get_status())
-	except NoSuchJobError: ""
-	return(df)	 	 
+ 	 
 
 
 def update_df_process_last_update_info(df: pd.DataFrame) -> None:
@@ -367,7 +305,7 @@ def update_df_process_last_update_info(df: pd.DataFrame) -> None:
 	Args:
 		df: df with process information.
 	"""
-	df["last update"] = df["job name"].apply(lambda x: check_last_process_info_update(x) if x else "")
+	df["last_updated_time"] = df["job name"].apply(lambda x: check_last_process_info_update(x) if x else "")
 
 
 def refresh_app(to_wait: int = 0) -> None:

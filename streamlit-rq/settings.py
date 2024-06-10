@@ -38,8 +38,8 @@ FORMAT = {
     "job_name": [],
     "job_id": [],
     "task": [],
-    "last_updated": [],
-    "running": [],
+    "last_updated_time": [],
+    "status": [],
 }
 WEEK_DAYS = {
     0: "Mon",
