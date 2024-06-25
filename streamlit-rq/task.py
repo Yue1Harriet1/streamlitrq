@@ -30,6 +30,9 @@ def count_down(seconds):
         ph.metric("Countdown", f"{mm:02d}:{ss:02d}")
         time.sleep(1)
 
+def spinner(seconds):
+	time.sleep(seconds)
+	
 def read_pdf(filename:str, dir:str):
 	return(PyPDFLoader(path+"//"+file).load_and_split())
 
