@@ -1,4 +1,4 @@
-# rqueue
+# streamlitrq
 
 This package is inspired by tasklit and expands its capabilities in: 
 
