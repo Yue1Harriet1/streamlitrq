@@ -285,96 +285,6 @@ def layout_homepage_define_new_task(process_df, db_engine, user_defined_task:Lis
 		
 		layout_current_session_tasks(process_df, db_engine, conn)
 
-def demo_homepage_define_new_task(process_df, user_defined_task:List[task.Task], task_inputs:Dict) -> None:
-	"""
-	Render and process homepage UI based on streamlit for defining a new task.
-
-	Args:
-		process_df: df with current process information.
-		db_engine: database engine for saving df into db.
-	"""  
-	if "counts" not in st.session_state: st.session_state["counts"]=0
-	tasks_list = {t.name: t.func for t in user_defined_task}
-	order, monitor = st.columns(2)
-	global conn, HOME_DIR
-
-	with order:
-		workers = st.columns(4)
-		with st.expander("# 🎯 Add New Requests"):
-			row = st.columns(4)
-			foodgrids = [col.container(height=115) for col in row]
-			with foodgrids[0]: st.image("https://assets.epicurious.com/photos/57c5c6d9cf9e9ad43de2d96e/1:1/w_1920,c_limit/the-ultimate-hamburger.jpg")	
-			with foodgrids[1]: st.image("https://assets.unileversolutions.com/recipes-v2/243652.jpg")
-			with foodgrids[2]: st.image("https://scontent-ord5-1.xx.fbcdn.net/v/t1.18169-9/20621949_181866382354166_2547956009864041122_n.jpg?_nc_cat=101&ccb=1-7&_nc_sid=5f2048&_nc_ohc=2umspTq0CS8Q7kNvgHlehGp&_nc_ht=scontent-ord5-1.xx&oh=00_AYDNexJo9RpY0Twgclf3kwU6-1ddbEsFc5whIgRj_UIDew&oe=6680BCC8")
-			with foodgrids[3]: st.image("https://img.taste.com.au/g3bM8rGr/w643-h428-cfill-q90/taste/2016/11/rachel-87711-2.jpeg")
-			
-			with st.columns(3)[1]: st.image("https://png.pngtree.com/png-clipart/20211116/original/pngtree-cute-hijab-muslim-chef-holding-the-order-here-sign-board-png-image_6933723.png", width=130)
-			form = st.form(key="annotation")
-			
-			with form:
-				cols = st.columns((1,1))
-				HOME_DIR = cols[0].text_input("App Home Path, specify:")
-				job_name = cols[1].text_input("Job name", "ABC")
-				cols = st.columns(2)
-				task_name = cols[0].selectbox("Task:", tasks_list.keys(), index=0)
-				job_name = task_name
-				#func_input["filename"] = cols[1].file_uploader("Upload a file")
-				cols = st.columns(2)
-				#data_start = cols[0].date_input("Dataset start from:")
-				#data_end = cols[1].date_input("Dataset end on:")
-				#if task_name == "sleep": 
-				#	func_input["query"] = st.text_area("Query:")
-				#else: comment = st.text_area("Notes:")
-				task_input = cols[0].text_input("Notes")
-				if task_input: 
-					task_inputs = json.loads(task_input)[0]
-					task_inputs = task_inputs['datapoints']
-				func = tasks_list[task_name]
-
-				#unit_select_col, slider_select_col, interval_duration, weekdays, frequency = get_execution_frequency()
-				#execution_schedule_col, date_input_col, time_slider_col, execution_type, start = get_execution_start_date(frequency, weekdays)
-				cols = st.columns(2)
-				submitted = cols[0].form_submit_button(label="Submit")
-				
-				conn, q, process = scheduler.start_scheduler_process(job_name)
-				
-				func_input = task_inputs
-				new_task_id = 1
-				
-
-			if submitted:
-				#new_task_id = utils.get_start_task_id(process_df)
-				new_task_id = 1
-				job = scheduler.submit_task(func=func, func_input=func_input, job_name=job_name, task_name="", start="start", interval_duration="", weekdays="", execution_type="execution_type", index=new_task_id, db_engine=db_engine, worker_process=process, queue=q, queue_type="rq")
-				#st.success(f"Submitted task {job_name} with process_id {process.pid} to execute job {job.id}.")
-				#st.write(job.get_status())
-				existing = qmanager.get_existing_jobs(conn)
-
-				for w in range(len(existing)):
-					with row[w]: st.image("https://img.freepik.com/premium-vector/illustration-isolated-set-cartoon-woman-chef_74440-3352.jpg?w=200")
-
-
-			"if refreshed:"
-			""
-			#jobs = [{'id': job_id, 'time': q.fetch_job(job_id).ended_at} for job_id in jobs]
-			#jobs = [{'id': j['id'], 'time': j['time'], 'result': q.fetch_job(j['id']).result} for j in jobs]
-			#st.write(jobs)
-			#st.write(q.fetch_job(job['id']).result)
-			
-			#refresh(process_df, conn)
-	if not HOME_DIR: HOME_DIR = os.path.join(os.path.expanduser("~"), '.rqueue')
-
-	if not os.path.isdir(HOME_DIR): os.mkdir(HOME_DIR)
-	APP_ENGINE_PATH = f"sqlite:///{HOME_DIR}/process_data.db"
-	db_engine = create_engine(APP_ENGINE_PATH, echo=False)
-	process_df = scheduler.get_process_df(db_engine)
-
-
-	with monitor:
-		
-		layout_current_session_tasks(process_df, db_engine, conn)
-		
-
 
 			
 def refresh(df:pd.DataFrame, connection, to_wait: int = 0) -> None:
@@ -462,5 +372,103 @@ def homepage(db_engine: engine, user_tasks) -> None:
 	layout_homepage_define_new_task(process_df, db_engine, user_tasks)
 
 
-def demo_homepage(user_tasks=[task.Task(task.sleep, "default task name")], task_inputs={"seconds": 10}) -> None:
-	demo_homepage_define_new_task(user_tasks, task_inputs=task_inputs)
+def demo_homepage(user_tasks=[task.Task(task.sleep, "default task name")], task_inputs={"seconds": 10}, HOME_DIR=None) -> None:
+	global process_df
+	if not HOME_DIR: HOME_DIR = os.path.join(os.path.expanduser("~"), '.rqueue')
+
+	if not os.path.isdir(HOME_DIR): os.mkdir(HOME_DIR)
+	APP_ENGINE_PATH = f"sqlite:///{HOME_DIR}/process_data.db"
+	db_engine = create_engine(APP_ENGINE_PATH, echo=False)
+	process_df = scheduler.get_process_df(db_engine)
+	demo_homepage_define_new_task(process_df=process_df, db_engine=db_engine, user_defined_task=user_tasks, task_inputs=task_inputs)
+
+
+
+
+
+
+def demo_homepage_define_new_task(process_df, db_engine, user_defined_task:List[task.Task], task_inputs:Dict) -> None:
+	"""
+	Render and process homepage UI based on streamlit for defining a new task.
+
+	Args:
+		process_df: df with current process information.
+		db_engine: database engine for saving df into db.
+	"""  
+	if "counts" not in st.session_state: st.session_state["counts"]=0
+	tasks_list = {t.name: t.func for t in user_defined_task}
+	order, monitor = st.columns(2)
+	global conn, HOME_DIR
+
+	with order:
+		workers = st.columns(4)
+		with st.expander("# 🎯 Add New Requests"):
+			row = st.columns(4)
+			foodgrids = [col.container(height=115) for col in row]
+			with foodgrids[0]: st.image("https://assets.epicurious.com/photos/57c5c6d9cf9e9ad43de2d96e/1:1/w_1920,c_limit/the-ultimate-hamburger.jpg")	
+			with foodgrids[1]: st.image("https://assets.unileversolutions.com/recipes-v2/243652.jpg")
+			with foodgrids[2]: st.image("https://scontent-ord5-1.xx.fbcdn.net/v/t1.18169-9/20621949_181866382354166_2547956009864041122_n.jpg?_nc_cat=101&ccb=1-7&_nc_sid=5f2048&_nc_ohc=2umspTq0CS8Q7kNvgHlehGp&_nc_ht=scontent-ord5-1.xx&oh=00_AYDNexJo9RpY0Twgclf3kwU6-1ddbEsFc5whIgRj_UIDew&oe=6680BCC8")
+			with foodgrids[3]: st.image("https://img.taste.com.au/g3bM8rGr/w643-h428-cfill-q90/taste/2016/11/rachel-87711-2.jpeg")
+			
+			with st.columns(3)[1]: st.image("https://png.pngtree.com/png-clipart/20211116/original/pngtree-cute-hijab-muslim-chef-holding-the-order-here-sign-board-png-image_6933723.png", width=130)
+			form = st.form(key="annotation")
+			
+			with form:
+				cols = st.columns((1,1))
+				HOME_DIR = cols[0].text_input("App Home Path, specify:")
+				job_name = cols[1].text_input("Job name", "ABC")
+				cols = st.columns(2)
+				task_name = cols[0].selectbox("Task:", tasks_list.keys(), index=0)
+				job_name = task_name
+				#func_input["filename"] = cols[1].file_uploader("Upload a file")
+				cols = st.columns(2)
+				#data_start = cols[0].date_input("Dataset start from:")
+				#data_end = cols[1].date_input("Dataset end on:")
+				#if task_name == "sleep": 
+				#	func_input["query"] = st.text_area("Query:")
+				#else: comment = st.text_area("Notes:")
+				task_input = cols[0].text_input("Notes")
+				if task_input: 
+					task_inputs = json.loads(task_input)[0]
+					task_inputs = task_inputs['datapoints']
+				func = tasks_list[task_name]
+
+				#unit_select_col, slider_select_col, interval_duration, weekdays, frequency = get_execution_frequency()
+				#execution_schedule_col, date_input_col, time_slider_col, execution_type, start = get_execution_start_date(frequency, weekdays)
+				cols = st.columns(2)
+				submitted = cols[0].form_submit_button(label="Submit")
+				
+				conn, q, process = scheduler.start_scheduler_process(job_name)
+				
+				func_input = task_inputs
+				new_task_id = 1
+				
+
+			if submitted:
+				#new_task_id = utils.get_start_task_id(process_df)
+				new_task_id = 1
+				job = scheduler.submit_task(func=func, func_input=func_input, job_name=job_name, task_name="", start="start", interval_duration="", weekdays="", execution_type="execution_type", index=new_task_id, db_engine=db_engine, worker_process=process, queue=q, queue_type="rq")
+				#st.success(f"Submitted task {job_name} with process_id {process.pid} to execute job {job.id}.")
+				#st.write(job.get_status())
+				existing = qmanager.get_existing_jobs(conn)
+
+				for w in range(len(existing)):
+					with row[w]: st.image("https://img.freepik.com/premium-vector/illustration-isolated-set-cartoon-woman-chef_74440-3352.jpg?w=200")
+
+
+			"if refreshed:"
+			""
+			#jobs = [{'id': job_id, 'time': q.fetch_job(job_id).ended_at} for job_id in jobs]
+			#jobs = [{'id': j['id'], 'time': j['time'], 'result': q.fetch_job(j['id']).result} for j in jobs]
+			#st.write(jobs)
+			#st.write(q.fetch_job(job['id']).result)
+			
+			#refresh(process_df, conn)
+
+
+
+	with monitor:
+		
+		layout_current_session_tasks(process_df, db_engine, conn)
+		
+
