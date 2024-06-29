@@ -327,7 +327,7 @@ def submit_button_controller(row, func, func_input, job_name, new_task_id, db_en
 
 
 
-@st.experimental_fragment
+@st.experimental_fragment(run_every=2)
 def layout_current_session_tasks(process_df, db_engine, redis_conn) -> None:
 	st.button("Update")
 	finished = qmanager.get_finished_jobs(redis_conn)
@@ -429,8 +429,9 @@ def demo_homepage_define_new_task(process_df, db_engine, user_defined_task:List[
 				#else: comment = st.text_area("Notes:")
 				task_input = cols[0].text_input("Notes")
 				if task_input: 
-					task_inputs = json.loads(task_input)[0]
-					task_inputs = task_inputs['datapoints']
+					task_input = json.loads(task_input)
+					task_inputs = task_input
+
 				func = tasks_list[task_name]
 
 				#unit_select_col, slider_select_col, interval_duration, weekdays, frequency = get_execution_frequency()
