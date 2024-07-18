@@ -1,14 +1,14 @@
 import redis
 from redis import Redis
-from streamlitrq import Queue, Worker, Connection
+from rq import Queue, Worker, Connection
 from multiprocessing import Process
 from subprocess import Popen
 import pandas as pd
 from sqlalchemy import engine, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy import create_engine
-from streamlitrq.exceptions import NoSuchJobError
-from streamlitrq.job import Job
+from rq.exceptions import NoSuchJobError
+from rq.job import Job
 from datetime import datetime, timedelta
 
 

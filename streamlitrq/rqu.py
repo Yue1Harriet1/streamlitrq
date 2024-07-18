@@ -1,6 +1,6 @@
 import redis
 from redis import Redis
-from streamlitrq import Queue, Worker, Connection
+from rq import Queue, Worker, Connection
 from multiprocessing import Process
 from subprocess import Popen
 
