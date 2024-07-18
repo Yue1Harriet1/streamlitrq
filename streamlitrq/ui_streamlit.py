@@ -9,7 +9,7 @@ from . import settings
 from . import scheduler, qmanager, db
 from sqlalchemy import engine, create_engine
 import pandas as pd
-from rq.job import Job
+from streamlitrq.job import Job
 import json
 from typing import List, Dict
 import threading

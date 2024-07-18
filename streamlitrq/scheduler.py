@@ -1,4 +1,4 @@
-import rq
+import streamlitrq
 from datetime import datetime, timedelta
 from sqlalchemy import engine, text
 import pandas as pd
@@ -16,10 +16,10 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy import create_engine
 import psutil
 import os
-from rq.job import Job
-from rq import get_current_job
+from streamlitrq.job import Job
+from streamlitrq import get_current_job
 from pandas.io import sql
-from rq.exceptions import NoSuchJobError
+from streamlitrq.exceptions import NoSuchJobError
 from typing import Dict
 from pandas.io import sql
 from . import db
